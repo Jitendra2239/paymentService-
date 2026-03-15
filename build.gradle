@@ -19,6 +19,7 @@ dependencyManagement {
     }
 }
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -32,6 +33,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-config-server'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'com.jitendra:common-events:1.0.0'
 }
 
 tasks.named('test') {
