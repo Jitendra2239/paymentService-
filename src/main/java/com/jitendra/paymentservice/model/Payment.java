@@ -15,7 +15,7 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String paymentId;
 
-    private String orderId;
+    private Long orderId;
 
     private Double amount;
 
@@ -28,5 +28,8 @@ public class Payment {
     private String status; // SUCCESS, FAILED, PENDING
 
     private LocalDateTime createdAt;
+    private String phoneNumber;
+    private String email;
+    private  String name;
 
 }

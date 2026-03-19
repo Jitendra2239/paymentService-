@@ -7,6 +7,6 @@ public interface PaymentService {
 
     PaymentResponse processPayment(PaymentRequest request);
 
-    PaymentResponse getPaymentStatus(String orderId);
+    PaymentResponse getPaymentStatus(Long orderId);
 
 }
