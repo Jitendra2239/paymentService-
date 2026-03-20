@@ -9,6 +9,7 @@ import com.jitendra.paymentservice.dto.PaymentResponse;
 
 import com.jitendra.paymentservice.exception.PaymentNotFoundException;
 import com.jitendra.paymentservice.model.Payment;
+import com.jitendra.paymentservice.model.PaymentStatus;
 import com.jitendra.paymentservice.paymentgetway.IPaymentGateway;
 import com.jitendra.paymentservice.paymentgetway.PaymentGatewayChooserStrategy;
 import com.jitendra.paymentservice.repository.PaymentRepository;
@@ -37,7 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
                 name, email);
     }
     @Override
-    public PaymentResponse processPayment(PaymentRequest request) {
+    public void processPayment(PaymentRequest request) {
 
         Optional<Payment> existingPayment =
                 paymentRepository.findByOrderId(request.getOrderId());
@@ -56,7 +57,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCreatedAt(LocalDateTime.now());
 
 
-        payment.setStatus("PENDING");
+        payment.setStatus(PaymentStatus.PENDING);
 
         paymentRepository.save(payment);
 
@@ -71,12 +72,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 
 
-        return new PaymentResponse(
-                payment.getPaymentId(),
-                payment.getStatus(),
-                payment.getTransactionId(),
-                response.getPaymentLink() // send link to frontend
-        );
+
     }
 
     @Override
@@ -104,21 +100,33 @@ public class PaymentServiceImpl implements PaymentService {
              request.setName(event.getFirstName());
              request.setPhone(event.getPhone());
 
-        PaymentResponse paymentResponse  =  processPayment(request);
+        processPayment(request);
 
-        if( paymentResponse.getStatus().equals("SUCCESS") ) {
-            PaymentSuccessEvent event1 =new PaymentSuccessEvent();
-            event1.setOrderId(event.getOrderId());
-            event1.setPaymentId(paymentResponse.getPaymentId());
 
-            kafkaTemplate.send("payment-success", event1);
-        } else {
-            PaymentFailedEvent event1 =new PaymentFailedEvent();
-            event1.setOrderId(event.getOrderId());
-            event1.setPaymentId(paymentResponse.getPaymentId());
-            kafkaTemplate.send("payment-failed", event1);
-        }
     }
+
+    public void handlePaymentSuccess(Long orderId, String transactionId) {
+
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setTransactionId(transactionId);
+
+        paymentRepository.save(payment);
+
+        // 🔥 Notify OrderService
+        kafkaTemplate.send("payment-success",
+                new PaymentSuccessEvent(orderId));
+
+        // 🔔 Notification
+        NotificationEvent event = new NotificationEvent();
+        event.setType("PAYMENT_SUCCESS");
+        event.setMessage("Payment successful!");
+
+        kafkaTemplate.send("notification-topic", event);
+    }
+
     @KafkaListener(topics = "order-cancelled")
     public void refund(OrderCancelledEvent event) {
         Payment payment = paymentRepository.findByOrderId(event.getOrderId()).orElseThrow(() -> new PaymentNotFoundException("Payment not Found for OrderId" + event.getOrderId()));
@@ -126,4 +134,6 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus("REFUNDED");
         paymentRepository.save(payment);
     }
+
+
 }

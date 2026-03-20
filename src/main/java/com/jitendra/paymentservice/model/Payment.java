@@ -25,7 +25,7 @@ public class Payment {
 
     private String transactionId;
 
-    private String status; // SUCCESS, FAILED, PENDING
+    public PaymentStatus status; // SUCCESS, FAILED, PENDING
 
     private LocalDateTime createdAt;
     private String phoneNumber;
