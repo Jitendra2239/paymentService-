@@ -2,6 +2,7 @@ package com.jitendra.paymentservice.controller;
 
 import com.jitendra.event.PaymentFailedEvent;
 import com.jitendra.event.PaymentSuccessEvent;
+import com.jitendra.paymentservice.exception.PaymentNotFoundException;
 import com.jitendra.paymentservice.model.Payment;
 import com.jitendra.paymentservice.model.PaymentStatus;
 import com.jitendra.paymentservice.repository.PaymentRepository;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import static com.razorpay.Utils.verifySignature;
 
 @RestController
-@RequestMapping("api/v1//payment")
+@RequestMapping("api/v1//payments")
 public class PaymentWebhookController {
 
     private final PaymentRepository paymentRepository;
@@ -62,59 +63,78 @@ public class PaymentWebhookController {
             @RequestHeader("X-Razorpay-Signature") String signature) {
 
         System.out.println("Webhook received: " + payload);
+
+
         if (!verifySignature(payload, signature)) {
             return ResponseEntity.status(400).body("Invalid signature");
         }
-        JSONObject json = new JSONObject(payload);
 
-        String eventType = json.getString("event");
+        try {
+            JSONObject json = new JSONObject(payload);
 
-        JSONObject paymentEntity = json
-                .getJSONObject("payload")
-                .getJSONObject("payment")
-                .getJSONObject("entity");
+            String eventType = json.getString("event");
 
-        String razorpayPaymentId = paymentEntity.getString("id");
-        String razorpayOrderId = paymentEntity.getString("order_id");
-        String status = paymentEntity.getString("status");
+            JSONObject paymentEntity = json
+                    .getJSONObject("payload")
+                    .getJSONObject("payment")
+                    .getJSONObject("entity");
 
-        Payment payment = paymentRepository
-                .findByTransactionId(razorpayOrderId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+            String razorpayPaymentId = paymentEntity.getString("id");        // pay_xxx
+            String razorpayOrderId = paymentEntity.getJSONObject("notes").getString("orderId");    // order_xxx
+            String status = paymentEntity.getString("status");
 
-        if (PaymentStatus.SUCCESS.equals(payment.getStatus())) {
-            return ResponseEntity.ok("Already processed");
-        }
-        if ("payment.captured".equals(eventType)) {
+            System.out.println("rezorpay in web hook->"+razorpayPaymentId);
+            Payment payment = paymentRepository
+                    .findByRazorpayOrderId(razorpayOrderId)
+                    .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
 
-            payment.setStatus(PaymentStatus.SUCCESS);
+
+            if (!PaymentStatus.PENDING.equals(payment.getStatus())) {
+                return ResponseEntity.ok("Already processed");
+            }
+
+
             payment.setTransactionId(razorpayPaymentId);
 
-            paymentRepository.save(payment);
 
-            // 🔥 Kafka event
-            PaymentSuccessEvent event = new PaymentSuccessEvent();
-            event.setOrderId(payment.getOrderId());
-            event.setPaymentId(payment.getPaymentId());
-            event.setName(payment.getName());
-            event.setEmail(payment.getEmail());
-            event.setPhone(payment.getPhoneNumber());
+            if ("payment.captured".equals(eventType)) {
 
-            kafkaTemplate.send("payment-success", event);
+                payment.setStatus(PaymentStatus.SUCCESS);
+                paymentRepository.save(payment);
+
+
+                PaymentSuccessEvent event = new PaymentSuccessEvent();
+                event.setOrderId(payment.getOrderId());
+                event.setPaymentId(payment.getTransactionId());
+                event.setName(payment.getName());
+                event.setEmail(payment.getEmail());
+                event.setPhone(payment.getPhoneNumber());
+
+                kafkaTemplate.send("payment-success", event);
+            }
+
+            else if ("payment.failed".equals(eventType)) {
+
+                payment.setStatus(PaymentStatus.FAILED);
+                paymentRepository.save(payment);
+
+
+                PaymentFailedEvent event = new PaymentFailedEvent();
+                event.setOrderId(payment.getOrderId());
+                event.setPaymentId(payment.getTransactionId());
+                event.setName(payment.getName());
+                event.setEmail(payment.getEmail());
+                event.setPhone(payment.getPhoneNumber());
+
+                kafkaTemplate.send("payment-failed", event);
+            }
+
+            return ResponseEntity.ok("Webhook processed");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Webhook processing failed");
         }
-        else if ("payment.failed".equals(eventType)) {
-
-            payment.setStatus(PaymentStatus.FAILED);
-            paymentRepository.save(payment);
-          PaymentFailedEvent  event= new PaymentFailedEvent();
-            event.setOrderId(payment.getOrderId());
-            event.setPaymentId(payment.getPaymentId());
-            event.setName(payment.getName());
-            event.setEmail(payment.getEmail());
-            event.setPhone(payment.getPhoneNumber());
-            kafkaTemplate.send("payment-failed", event);
-        }
-        return ResponseEntity.ok("Webhook processed");
     }
     }
 

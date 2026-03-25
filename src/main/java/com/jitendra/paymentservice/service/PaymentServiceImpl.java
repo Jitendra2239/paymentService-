@@ -38,7 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
                 name, email);
     }
     @Override
-    public void processPayment(PaymentRequest request) {
+    public PaymentResponse processPayment(PaymentRequest request) {
 
         Optional<Payment> existingPayment =
                 paymentRepository.findByOrderId(request.getOrderId());
@@ -64,14 +64,14 @@ public class PaymentServiceImpl implements PaymentService {
 
         PaymentGatewayResponse response =
                 strategy.getBestPaymentGateway()
-                        .createPaymentLink(payment.getAmount(), payment.getOrderId(), payment.getPhoneNumber(), payment.getEmail(), payment.getName());
-
-
+                        .createPaymentLink(payment.getAmount(), payment.getOrderId(), payment.getPhoneNumber(),payment.getName(), payment.getEmail());
+        System.out.println("rezorpay in serviceimpl->"+response.getRazorpayOrderId());
+        payment.setRazorpayOrderId(response.getRazorpayOrderId());
         payment.setTransactionId(response.getTransactionId());
         paymentRepository.save(payment);
 
-
-
+System.out.println("short_url->"+response.getPaymentLink());
+return  new PaymentResponse();
 
     }
 
@@ -80,7 +80,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment payment = paymentRepository
                 .findByOrderId(orderId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
 
         return new PaymentResponse(
                 payment.getPaymentId(),
@@ -99,6 +99,9 @@ public class PaymentServiceImpl implements PaymentService {
              request.setCurrency(event.getCurrency());
              request.setName(event.getFirstName());
              request.setPhone(event.getPhone());
+             request.setOrderId(event.getOrderId());
+             request.setCurrency("INR");
+             request.setPaymentMethod("Online");
 
         processPayment(request);
 
@@ -117,7 +120,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 🔥 Notify OrderService
         kafkaTemplate.send("payment-success",
-                new PaymentSuccessEvent(orderId));
+                new PaymentSuccessEvent( payment.getOrderId(),payment.getAmount(),LocalDateTime.now(),payment.getPhoneNumber(),payment.getName(),payment.getEmail(),payment.getTransactionId()));
 
         // 🔔 Notification
         NotificationEvent event = new NotificationEvent();
@@ -131,7 +134,7 @@ public class PaymentServiceImpl implements PaymentService {
     public void refund(OrderCancelledEvent event) {
         Payment payment = paymentRepository.findByOrderId(event.getOrderId()).orElseThrow(() -> new PaymentNotFoundException("Payment not Found for OrderId" + event.getOrderId()));
 
-        payment.setStatus("REFUNDED");
+        payment.setStatus(PaymentStatus.REFUNDED);
         paymentRepository.save(payment);
     }
 

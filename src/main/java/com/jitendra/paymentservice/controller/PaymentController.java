@@ -20,14 +20,12 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> pay(
             @RequestBody PaymentRequest request) {
 
-        return ResponseEntity.ok(
-                paymentService.processPayment(request)
-        );
+        return ResponseEntity.ok(paymentService.processPayment(request));
     }
 
     @GetMapping("/{orderId}")
     public ResponseEntity<PaymentResponse> status(
-            @PathVariable String orderId) {
+            @PathVariable Long orderId) {
 
         return ResponseEntity.ok(
                 paymentService.getPaymentStatus(orderId)

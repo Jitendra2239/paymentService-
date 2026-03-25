@@ -5,7 +5,7 @@ import com.jitendra.paymentservice.dto.PaymentResponse;
 
 public interface PaymentService {
 
-    void processPayment(PaymentRequest request);
+    PaymentResponse processPayment(PaymentRequest request);
 
     PaymentResponse getPaymentStatus(Long orderId);
 

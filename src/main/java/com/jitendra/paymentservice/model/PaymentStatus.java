@@ -1,5 +1,5 @@
 package com.jitendra.paymentservice.model;
 
 public enum PaymentStatus {
-    PENDING, SUCCESS, FAILED
+    PENDING, SUCCESS, FAILED,REFUNDED
 }
