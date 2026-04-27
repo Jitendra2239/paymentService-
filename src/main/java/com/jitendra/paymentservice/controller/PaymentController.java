@@ -2,6 +2,7 @@ package com.jitendra.paymentservice.controller;
 
 import com.jitendra.paymentservice.dto.PaymentRequest;
 import com.jitendra.paymentservice.dto.PaymentResponse;
+import com.jitendra.paymentservice.model.Payment;
 import com.jitendra.paymentservice.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,5 +31,12 @@ public class PaymentController {
         return ResponseEntity.ok(
                 paymentService.getPaymentStatus(orderId)
         );
+    }
+
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<Payment> getPayment(
+            @PathVariable Long orderId) {
+
+        return ResponseEntity.ok(paymentService.getPayment(orderId));
     }
 }

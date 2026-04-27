@@ -17,9 +17,7 @@ public class StripePaymentGateway implements IPaymentGateway {
     private String stripeApiKey;
 
     @Override
-    public PaymentGatewayResponse createPaymentLink(Double amount, Long orderId,
-                                                    String phoneNumber, String name,
-                                                    String email) {
+    public PaymentGatewayResponse createPaymentLink(Double amount, Long orderId) {
 
 
         try {

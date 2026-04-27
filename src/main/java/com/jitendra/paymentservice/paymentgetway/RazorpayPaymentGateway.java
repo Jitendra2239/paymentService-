@@ -1,6 +1,7 @@
 package com.jitendra.paymentservice.paymentgetway;
 
 import com.jitendra.paymentservice.dto.PaymentGatewayResponse;
+import org.apache.kafka.common.protocol.types.Field;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.json.JSONObject;
@@ -16,14 +17,16 @@ public class RazorpayPaymentGateway implements IPaymentGateway {
     @Autowired
     private RazorpayClient razorpayClient;
 
-    public PaymentGatewayResponse createPaymentLink(Double amount, Long orderId, String phoneNumber, String name, String email) {
+    public PaymentGatewayResponse createPaymentLink(Double amount, Long orderId) {
         try {
-
-            System.out.println("emial from orderService:-"+email);
+           String email="";
+           String phoneNumber="";
+           String name="";
+           System.out.println("emial from orderService:-"+email);
             int amountInPaise = (int) (amount * 100);
             long expireBy = (System.currentTimeMillis() / 1000) + (30 * 60);
             JSONObject paymentLinkRequest = new JSONObject();
-            paymentLinkRequest.put("amount", amountInPaise);
+            paymentLinkRequest.put("amount", 100);
             paymentLinkRequest.put("currency", "INR");
             paymentLinkRequest.put("accept_partial", true);
             paymentLinkRequest.put("first_min_partial_amount", 100);

@@ -37,6 +37,7 @@ dependencies {
     implementation 'com.jitendra:common-events:1.0.0'
     implementation 'com.razorpay:razorpay-java:1.4.8'
     implementation 'com.stripe:stripe-java:29.4.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 }
 
 tasks.named('test') {

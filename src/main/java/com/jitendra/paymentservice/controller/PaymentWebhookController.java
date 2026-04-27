@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+
 import static com.razorpay.Utils.verifySignature;
 
 @RestController
@@ -88,7 +90,7 @@ public class PaymentWebhookController {
                     .findByRazorpayOrderId(razorpayOrderId)
                     .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
 
-
+            System.out.println("Payment received in webhook: " + payment.getUserId());
             if (!PaymentStatus.PENDING.equals(payment.getStatus())) {
                 return ResponseEntity.ok("Already processed");
             }
@@ -103,14 +105,19 @@ public class PaymentWebhookController {
                 paymentRepository.save(payment);
 
 
-                PaymentSuccessEvent event = new PaymentSuccessEvent();
-                event.setOrderId(payment.getOrderId());
-                event.setPaymentId(payment.getTransactionId());
-                event.setName(payment.getName());
-                event.setEmail(payment.getEmail());
-                event.setPhone(payment.getPhoneNumber());
+               // PaymentSuccessEvent paymentSuccessEvent= new PaymentSuccessEvent( payment.getOrderId(),payment.getAmount(), LocalDateTime.now(),payment.getUserId(),payment.getEmail(),payment.getTransactionId());
+                PaymentSuccessEvent paymentSuccessEvent= new PaymentSuccessEvent();
+                paymentSuccessEvent.setPaymentId(payment.getPaymentId());
+                paymentSuccessEvent.setOrderId(payment.getOrderId());
+                paymentSuccessEvent.setAmount(payment.getAmount());
+                paymentSuccessEvent.setUserId(payment.getUserId());
+                paymentSuccessEvent.setTimestamp(LocalDateTime.now());
+                paymentSuccessEvent.setEmail(payment.getEmail());
 
-                kafkaTemplate.send("payment-success", event);
+                        // 🔥 Notify OrderService));
+
+                System.out.println("Payment received in userId: " + paymentSuccessEvent.getUserId());
+                kafkaTemplate.send("payment-success", paymentSuccessEvent);
             }
 
             else if ("payment.failed".equals(eventType)) {
@@ -122,9 +129,10 @@ public class PaymentWebhookController {
                 PaymentFailedEvent event = new PaymentFailedEvent();
                 event.setOrderId(payment.getOrderId());
                 event.setPaymentId(payment.getTransactionId());
-                event.setName(payment.getName());
+                event.setAmount(payment.getAmount());
+
                 event.setEmail(payment.getEmail());
-                event.setPhone(payment.getPhoneNumber());
+
 
                 kafkaTemplate.send("payment-failed", event);
             }

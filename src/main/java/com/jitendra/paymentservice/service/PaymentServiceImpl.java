@@ -34,8 +34,7 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentGatewayResponse getPaymentLink(Double amount,Long orderId,String phoneNumber,
                                  String name, String email) {
         IPaymentGateway paymentGateway = strategy.getBestPaymentGateway();
-        return paymentGateway.createPaymentLink(amount, orderId, phoneNumber,
-                name, email);
+        return paymentGateway.createPaymentLink(amount, orderId);
     }
     @Override
     public PaymentResponse processPayment(PaymentRequest request) {
@@ -52,8 +51,8 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setAmount(request.getAmount());
         payment.setCurrency(request.getCurrency());
         payment.setEmail(request.getEmail());
-        payment.setName(request.getName());
-        payment.setPhoneNumber(request.getPhone());
+        payment.setUserId(request.getUserId());
+
         payment.setCreatedAt(LocalDateTime.now());
 
 
@@ -64,7 +63,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         PaymentGatewayResponse response =
                 strategy.getBestPaymentGateway()
-                        .createPaymentLink(payment.getAmount(), payment.getOrderId(), payment.getPhoneNumber(),payment.getName(), payment.getEmail());
+                        .createPaymentLink(payment.getAmount(), payment.getOrderId());
         System.out.println("rezorpay in serviceimpl->"+response.getRazorpayOrderId());
         payment.setRazorpayOrderId(response.getRazorpayOrderId());
         payment.setTransactionId(response.getTransactionId());
@@ -97,8 +96,7 @@ return  new PaymentResponse();
              request.setAmount(event.getAmount());
              request.setEmail(event.getEmail());
              request.setCurrency(event.getCurrency());
-             request.setName(event.getFirstName());
-             request.setPhone(event.getPhone());
+             request.setUserId(event.getUserId());
              request.setOrderId(event.getOrderId());
              request.setCurrency("INR");
              request.setPaymentMethod("Online");
@@ -107,9 +105,13 @@ return  new PaymentResponse();
 
 
     }
+    @Override
+    public  Payment getPayment(Long orderId) {
+        return paymentRepository.findByOrderId(orderId).orElseThrow(null);
+    }
 
     public void handlePaymentSuccess(Long orderId, String transactionId) {
-
+        System.out.println("paymentUserId get from payment->"+orderId);
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
@@ -117,13 +119,16 @@ return  new PaymentResponse();
         payment.setTransactionId(transactionId);
 
         paymentRepository.save(payment);
-
+       PaymentSuccessEvent paymentSuccessEvent= new PaymentSuccessEvent( payment.getOrderId(),payment.getAmount(),LocalDateTime.now(),payment.getUserId(),payment.getEmail(),payment.getTransactionId());
         // 🔥 Notify OrderService
-        kafkaTemplate.send("payment-success",
-                new PaymentSuccessEvent( payment.getOrderId(),payment.getAmount(),LocalDateTime.now(),payment.getPhoneNumber(),payment.getName(),payment.getEmail(),payment.getTransactionId()));
+        kafkaTemplate.send("payment-success",paymentSuccessEvent);
+
 
         // 🔔 Notification
         NotificationEvent event = new NotificationEvent();
+        event.setEmail(payment.getEmail());
+        event.setOrder_id(payment.getOrderId());
+        event.setUserId(payment.getUserId());
         event.setType("PAYMENT_SUCCESS");
         event.setMessage("Payment successful!");
 

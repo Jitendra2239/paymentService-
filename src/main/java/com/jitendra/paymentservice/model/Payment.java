@@ -23,6 +23,7 @@ public class Payment {
     private String razorpayOrderId;
 
 
+    private  Long userId;
 
     private Double amount;
 
